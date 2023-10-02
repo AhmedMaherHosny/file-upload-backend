@@ -17,6 +17,8 @@ import { Request, Response } from 'express';
 import {
   createReadStream,
   createWriteStream,
+  existsSync,
+  mkdirSync,
   readdirSync,
   unlinkSync,
 } from 'fs';
@@ -27,9 +29,9 @@ export class UploadController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
-        destination: './uploaded_files',
+        destination: './uploaded_chunks',
         filename: (req, file, cb) => {
-          const timestamp = Date.now(); // Get the current timestamp
+          const timestamp = Date.now();
           const randomName = uuidv4();
           const extension = extname(file.originalname);
           const uniqueName = `${timestamp}_${randomName}${extension}`;
@@ -63,10 +65,16 @@ export class UploadController {
 
     if (endByte === totalBytes - 1) {
       fileStream.end();
-      const chunksDirectory = './uploaded_files';
-      const assembledFilePath = join(chunksDirectory, file.originalname);
+      const chunksDirectory = './uploaded_chunks';
+      const assembledFilesDirectory = './uploaded_files';
+      const assembledFilePath = join(
+        assembledFilesDirectory,
+        file.originalname,
+      );
+      if (!existsSync(assembledFilesDirectory)) {
+        mkdirSync(assembledFilesDirectory);
+      }
       const assembledFileStream = createWriteStream(assembledFilePath);
-
       const files = readdirSync(chunksDirectory);
       files.sort((a, b) => {
         const timestampA = parseInt(a.split('_')[0]);
