@@ -11,30 +11,25 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname, join } from 'path';
+import { extname } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { Request, Response } from 'express';
-import {
-  createReadStream,
-  createWriteStream,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  unlinkSync,
-} from 'fs';
+import { createWriteStream, readFileSync, unlinkSync } from 'fs';
+import { RedisService } from 'src/redis/service/redis/redis.service';
+import { Constant } from 'utils/Constant';
 
 @Controller('upload')
 export class UploadController {
+  constructor(private readonly redisService: RedisService) {}
   @Post('file')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
-        destination: './uploaded_chunks',
+        destination: './uploaded_files',
         filename: (req, file, cb) => {
-          const timestamp = Date.now();
-          const randomName = uuidv4();
+          const fileId = uuidv4();
           const extension = extname(file.originalname);
-          const uniqueName = `${timestamp}_${randomName}${extension}`;
+          const uniqueName = `${fileId}${extension}`;
           cb(null, uniqueName);
         },
       }),
@@ -47,6 +42,8 @@ export class UploadController {
     @Res() res: Response,
   ) {
     const contentRange = req.header('Content-Range');
+    const fileIdentifier = req.header('X-File-Identifier');
+
     if (!contentRange) {
       throw new BadRequestException('Content-Range header is missing');
     }
@@ -54,52 +51,38 @@ export class UploadController {
     if (!matches) {
       throw new BadRequestException('Invalid Content-Range header format');
     }
+    if (!fileIdentifier) {
+      throw new BadRequestException('X-File-Identifier header is missing');
+    }
+    const isfileIdentifierExists = await this.redisService.isKeyExist(
+      Constant.FILE_PATH_MAPPING_KEY,
+      fileIdentifier,
+    );
     const startByte = parseInt(matches[1]);
     const endByte = parseInt(matches[2]);
-    const totalBytes = parseInt(matches[3]);
-    const filePath = file.path;
-    console.log(filePath);
-    const fileStream = createWriteStream(filePath, { flags: 'a' });
+    //const totalBytes = parseInt(matches[3]);
+    let filePath = file.path;
 
-    req.pipe(fileStream);
-
-    if (endByte === totalBytes - 1) {
-      fileStream.end();
-      const chunksDirectory = './uploaded_chunks';
-      const assembledFilesDirectory = './uploaded_files';
-      const assembledFilePath = join(
-        assembledFilesDirectory,
-        file.originalname,
+    if (isfileIdentifierExists) {
+      filePath = await this.redisService.getHashItem(
+        Constant.FILE_PATH_MAPPING_KEY,
+        fileIdentifier,
       );
-      if (!existsSync(assembledFilesDirectory)) {
-        mkdirSync(assembledFilesDirectory);
-      }
-      const assembledFileStream = createWriteStream(assembledFilePath);
-      const files = readdirSync(chunksDirectory);
-      files.sort((a, b) => {
-        const timestampA = parseInt(a.split('_')[0]);
-        const timestampB = parseInt(b.split('_')[0]);
-        return timestampA - timestampB;
-      });
-      console.log(files);
-
-      for (const fileName of files) {
-        const chunkFilePath = join(chunksDirectory, fileName);
-        const chunkReadStream = createReadStream(chunkFilePath);
-        await new Promise((resolve) => {
-          chunkReadStream.on('end', resolve);
-          chunkReadStream.pipe(assembledFileStream, { end: false });
-        });
-        chunkReadStream.close();
-      }
-
-      assembledFileStream.end();
-
-      for (const fileName of files) {
-        const chunkFilePath = join(chunksDirectory, fileName);
-        unlinkSync(chunkFilePath);
-      }
+    } else {
+      await this.redisService.setHashItem(
+        Constant.FILE_PATH_MAPPING_KEY,
+        fileIdentifier,
+        filePath,
+      );
     }
+    const fileContent = readFileSync(req.file.path);
+    const writeStream = createWriteStream(filePath, {
+      flags: startByte === 0 ? 'w' : 'a',
+    });
+    writeStream.write(fileContent);
+    writeStream.end();
+    unlinkSync(req.file.path);
+
     res.status(HttpStatus.PARTIAL_CONTENT).json({
       message: 'Partial upload successful',
       startByte,

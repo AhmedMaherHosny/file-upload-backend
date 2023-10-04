@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { UploadController } from './upload/controller/upload/upload.controller';
+import { RedisModule } from './redis/redis.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
-  imports: [],
-  controllers: [AppController, UploadController],
+  imports: [RedisModule, UploadModule],
+  controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
