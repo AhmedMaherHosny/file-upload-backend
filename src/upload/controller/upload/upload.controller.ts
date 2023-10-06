@@ -14,13 +14,16 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { Request, Response } from 'express';
-import { createWriteStream, readFileSync, unlinkSync } from 'fs';
 import { RedisService } from 'src/redis/service/redis/redis.service';
 import { Constant } from 'utils/Constant';
+import { UploadService } from '../../service/upload/upload.service';
 
 @Controller('upload')
 export class UploadController {
-  constructor(private readonly redisService: RedisService) {}
+  constructor(
+    private readonly redisService: RedisService,
+    private readonly uploadService: UploadService,
+  ) {}
   @Post('file')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -75,13 +78,8 @@ export class UploadController {
         filePath,
       );
     }
-    const fileContent = readFileSync(req.file.path);
-    const writeStream = createWriteStream(filePath, {
-      flags: startByte === 0 ? 'w' : 'a',
-    });
-    writeStream.write(fileContent);
-    writeStream.end();
-    unlinkSync(req.file.path);
+
+    this.uploadService.processFile(req.file.path, filePath, startByte);
 
     res.status(HttpStatus.PARTIAL_CONTENT).json({
       message: 'Partial upload successful',
