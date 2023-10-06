@@ -65,7 +65,6 @@ export class UploadController {
     const endByte = parseInt(matches[2]);
     //const totalBytes = parseInt(matches[3]);
     let filePath = file.path;
-
     if (isfileIdentifierExists) {
       filePath = await this.redisService.getHashItem(
         Constant.FILE_PATH_MAPPING_KEY,
