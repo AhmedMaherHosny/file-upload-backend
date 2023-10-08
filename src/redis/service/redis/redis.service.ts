@@ -11,13 +11,11 @@ export class RedisService {
       port: 6379,
       password: '',
     });
-
-    this.redisClient.on('error', (error) => {
-      Logger.error('Redis connection error:', error);
-    });
-
     this.redisClient.on('ready', () => {
       Logger.log('Redis connection established');
+    });
+    this.redisClient.on('error', (error) => {
+      Logger.error('Redis connection error:', error);
     });
   }
 
@@ -47,5 +45,9 @@ export class RedisService {
   async isKeyExist(hashKey: string, searchKey: string) {
     const exists = await this.redisClient.hexists(hashKey, searchKey);
     return exists;
+  }
+
+  async removeHashItem(hashKey: string, field: string) {
+    await this.redisClient.hdel(hashKey, field);
   }
 }

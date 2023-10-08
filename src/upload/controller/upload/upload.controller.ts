@@ -63,7 +63,7 @@ export class UploadController {
     );
     const startByte = parseInt(matches[1]);
     const endByte = parseInt(matches[2]);
-    //const totalBytes = parseInt(matches[3]);
+    const totalBytes = parseInt(matches[3]);
     let filePath = file.path;
     if (isfileIdentifierExists) {
       filePath = await this.redisService.getHashItem(
@@ -79,6 +79,13 @@ export class UploadController {
     }
 
     this.uploadService.processFile(req.file.path, filePath, startByte);
+
+    if (endByte + 1 === totalBytes) {
+      await this.redisService.removeHashItem(
+        Constant.FILE_PATH_MAPPING_KEY,
+        fileIdentifier,
+      );
+    }
 
     res.status(HttpStatus.PARTIAL_CONTENT).json({
       message: 'Partial upload successful',
