@@ -2,29 +2,91 @@
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="200" alt="Nest Logo" /></a>
 </p>
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
-
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Backend for uploading file in chunks to effectively upload large files.
+
+## Tools Used
+
+1. **NestJS**: A powerful Node.js framework used for building scalable and efficient server-side applications.
+
+2. **ioredis**: A Redis client library for Node.js, used for connecting to and interacting with Redis.
+
+3. **multer**: Middleware for handling file uploads in Express applications.
+
+4. **express**: A web application framework for Node.js used as a foundation for building RESTful APIs.
+
+5. **uuid**: A library for generating unique identifiers (UUIDs).
+
+## RedisService
+
+### Description
+This service provides methods to interact with a Redis database. It includes functionality for setting and getting values, managing hashes, checking the existence of keys, and removing hash items.
+
+### Methods
+
+1. `setValue(key: string, value: string)`
+   - Sets a key-value pair in Redis.
+   
+2. `getValue(key: string): Promise<string | null>`
+   - Retrieves the value associated with a given key from Redis.
+
+3. `setHashItem(hashKey: string, field: string, value: string)`
+   - Sets a field and its value in a Redis hash.
+
+4. `getHash(hashKey: string): Promise<Record<string, string>>`
+   - Retrieves all field-value pairs from a Redis hash.
+
+5. `getHashItem(hashKey: string, field: string): Promise<string | null>`
+   - Retrieves the value of a specific field in a Redis hash.
+
+6. `isKeyExist(hashKey: string, searchKey: string): Promise<boolean>`
+   - Checks if a specific key exists within a Redis hash.
+
+7. `removeHashItem(hashKey: string, field: string)`
+   - Removes a specific field from a Redis hash.
+
+## UploadService
+
+### Description
+This service provides functionality for processing and storing uploaded files. It reads file content, writes it to a destination, and supports the append mode for resumable uploads.
+
+### Methods
+
+1. `processFile(chunkPath: string, finalFilePath: string, startByte: number)`
+   - Reads the content of a file chunk, appends it to a destination file, and removes the chunk file.
+
+## UploadController
+
+### Description
+The controller handles HTTP requests related to file uploads. It uses the `FileInterceptor` from `multer` to handle file uploads, supports resumable uploads with partial content requests, and interacts with the `RedisService` and `UploadService` for managing file uploads.
+
+### Endpoints
+
+1. `POST /upload/file`
+   - Description: Upload a file, supports resumable uploads.
+   - Request Headers:
+     - `Content-Range`: Indicates the byte range of the uploaded chunk.
+     - `X-File-Identifier`: Unique identifier for the uploaded file.
+   - Request Body:
+     - `file`: The uploaded file.
+   - Response:
+     - Status Code: `206 Partial Content` (for partial uploads)
+     - JSON Response:
+       ```
+       {
+         "message": "Partial upload successful",
+         "startByte": <startByte>,
+         "endByte": <endByte>
+       }
+       ```
+     - Description: Uploads a file chunk, appends it to the destination file, and updates Redis storage for resumable uploads. The response provides information about the uploaded chunk's start and end bytes.
+
+## Additional Notes
+
+- This documentation provides an overview of the key components and API endpoints of the backend project. Ensure that the necessary dependencies are installed, and the project configuration is set up before using these services and endpoints.
+- Proper error handling and validation should be implemented in a production environment.
+- Resumable uploads are supported using the `Content-Range` header, enabling large file uploads to be split into chunks and uploaded incrementally. The server appends the chunks to create the final file.
 
 ## Installation
 
@@ -45,29 +107,6 @@ $ yarn run start:dev
 $ yarn run start:prod
 ```
 
-## Test
-
-```bash
-# unit tests
-$ yarn run test
-
-# e2e tests
-$ yarn run test:e2e
-
-# test coverage
-$ yarn run test:cov
-```
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
 ## License
 
-Nest is [MIT licensed](LICENSE).
+Project is [MIT licensed](https://github.com/AhmedMaherHosny/file-upload-backend/blob/master/LICENSE).
